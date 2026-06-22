@@ -5,15 +5,20 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
+    "hpp": "^0.2.3",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.7.1"
+    "mongoose": "^9.7.1",
+    "mongoose-express-sanitizer": "^2.0.1",
+    "morgan": "^1.11.0"
   },
   "name": "backend",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
   "type": "module",
-  "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",

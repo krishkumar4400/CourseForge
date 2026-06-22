@@ -4,9 +4,8 @@ import http from "http";
 
 const server = http.createServer(app);
 
-const port = process.env.PORT || 8000;
+const port = process.env.PORT || 4000;
 
-console.log(process.env);
 server.listen(port, () => {
   console.log(`Server is up and running on http://localhost:${port}`);
 });
