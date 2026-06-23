@@ -1,4 +1,4 @@
-import mongoose, { model, Schema } from "mongoose";
+import mongoose, { model, models, Schema } from "mongoose";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import { AvailableUserTypes, UserTypeEnum } from "../utils/constants.js";
@@ -11,6 +11,7 @@ const userSchema = new Schema(
     },
     name: {
       type: String,
+      trim: true,
       required: [true, "Name is required"],
       maxLength: [50, "Name cannot exceed 50 characters"],
     },
@@ -18,7 +19,7 @@ const userSchema = new Schema(
       type: String,
       trim: true,
       required: [true, "Email is required"],
-      unqiue: true,
+      unique: true,
       lowercase: true,
       match: [
         /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
@@ -30,10 +31,12 @@ const userSchema = new Schema(
       required: [true, "Password is required"],
       trim: true,
       minLength: [8, "Password must be at least 8 characters"],
+      maxLength: [128, "Password too long"],
       select: false,
     },
     isPaid: {
       type: Boolean,
+      default: false,
     },
     role: {
       type: String,
@@ -45,7 +48,8 @@ const userSchema = new Schema(
     },
     bio: {
       type: String,
-      maxLength: [200, "Bia cannot exceed 200 characters"],
+      trim: true,
+      maxLength: [200, "Bio cannot exceed 200 characters"],
     },
     enrolledCourses: [
       {
@@ -75,6 +79,10 @@ const userSchema = new Schema(
       type: String,
       select: false,
     },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     verifyEmailToken: {
       type: String,
     },
@@ -91,24 +99,80 @@ const userSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    lastLogin: {
+      type: Date,
+      default: Date.now,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
+    toJSON: {
+      virtuals: true,
+    },
+    toObject: {
+      virtuals: true,
+    },
   },
 );
 
 // pre hooks
 // hashing the password
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 10);
+  try {
+    if (!this.isModified("password")) return;
+    this.password = await bcrypt.hash(this.password, 10);
+  } catch (error) {
+    console.error(error);
+    throw new Error("Error occured while hashing the password");
+  }
 });
 
 // methods
-// compare or match the provided by the user
+// compare or match the password provided by the user
 userSchema.methods.comparePassword = async function (password) {
   return await bcrypt.compare(password, this.password);
 };
 
-const userModel = model.User || model("User", userSchema);
+userSchema.methods.generateTemporaryTokens = function () {
+  const unHashedToken = crypto.randomBytes(30).toString("base64");
+  const hashedToken = crypto
+    .createHash("sha256")
+    .update(unHashedToken)
+    .digest("base64");
+  const expiryTime = Date.now() + 20 * 60 * 1000; // 20 Minutes
+
+  return {
+    unHashedToken,
+    hashedToken,
+    expiryTime,
+  };
+};
+
+userSchema.methods.updateLastActive = function () {
+  this.lastActive = Date.now();
+  return this.lastActive({ validateBeforeSave: false });
+};
+
+// virtual field for enrolled courses
+userSchema.virtual("totalEnrolledCourses").get(function () {
+  return this.enrolledCourses?.length || 0;
+});
+
+userSchema.set("toJSON", {
+  transform: function (doc, ret) {
+    delete ret.password;
+    delete ret.refreshToken;
+    delete ret.resetPasswordToken;
+    delete ret.verifyEmailToken;
+    return ret;
+  },
+});
+
+userSchema.index({ email: 1 });
+
+const userModel = models.User || model("User", userSchema);
 export default userModel;
